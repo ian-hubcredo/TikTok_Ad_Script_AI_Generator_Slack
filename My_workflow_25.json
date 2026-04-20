@@ -1,0 +1,881 @@
+{
+  "name": "My workflow 25",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "TikTok Shop Ads Data Submit Form",
+        "formDescription": "Submit TikTok Shops Ads Details and Audio File of Video Ad.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Product",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Item Sold",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Revenue"
+            },
+            {
+              "fieldLabel": "GPM "
+            },
+            {
+              "fieldLabel": "Ad CPA"
+            },
+            {
+              "fieldLabel": "Audio File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b206211d-30a2-4e7d-add3-50529bba1567",
+      "name": "Form",
+      "webhookId": "<REDACTED_WEBHOOK_ID>"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "inputType": "binary",
+        "binaryPropertyName": "Audio_File",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "45b32505-e3fa-43a9-9b45-e9fe7e760df6",
+      "name": "Transcribe TikTok Ad",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Product : {{ $('Form').item.json.Product }}\nItem Sold : {{ $('Form').item.json['Item Sold'] }}\nRevenue : {{ $('Form').item.json.Revenue }}\nGPM : {{ $('Form').item.json['GPM '] }}\nAd CPA : {{ $('Form').item.json['Ad CPA'] }}\n\nTranscript : {{ $json.content.parts[0].text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an AI assistant integrated into an n8n workflow. \nYour role is to clean and format TikTok Shop ad video transcripts along with performance metadata \nand create a Slack message for the copywriter’s approval.\n\n---\n\n### INPUTS:\nYou will receive the following fields in JSON:\n{\n  \"product\": \"string\",\n  \"item_sold\": \"string\",\n  \"revenue\": \"string\",\n  \"gpm\": \"string\",\n  \"ad_cpa\": \"string\",\n  \"transcript_raw\": \"string\"\n}\n\n---\n\n### TASKS:\n\n1. **Parse & Clean Transcript**\n   - Clean and format the `transcript_raw` text.\n   - Fix punctuation, grammar, and capitalization.\n   - Remove filler words (“uh”, “um”, “like”, “you know”) unless meaningful.\n   - Merge broken or incomplete sentences.\n   - Preserve tone suitable for TikTok ad style — conversational, energetic, and concise.\n\n2. **Generate Slack Message for Copywriter Approval**\n   - Create a Slack message summarizing the metadata and including the cleaned transcript.\n   - Format it professionally and make it visually scannable using emojis and markdown.\n   - Mention `@copywriter` at the end for approval.\n   - Use the following format as a reference.\n\n---\n\n### SLACK MESSAGE FORMAT EXAMPLE:\n\n💡 *TikTok Shop Ad Transcript Ready for Copywriter Review*\n\n*🛍️ Product:* \n*📦 Item Sold:*  \n*💰 Revenue:* \n*📈 GPM:* \n*🎯 Ad CPA:* \n\n🧾 *Cleaned Transcript:*  \n\n---\n\n✅ *Next Step:*  \n@copywriter please review and approve this transcript for ad copy and caption creation.\n\n\n### RULES:\n- Always follow strict JSON syntax (no extra comments or markdown outside JSON).\n- If any input value is missing, write `\"Not provided\"`.\n- Slack message must be clean, well-formatted, and ready to send directly.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "b18884bd-7049-45af-bb1c-d9904b37f874",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        352,
+        192
+      ],
+      "id": "619f0ed9-0bab-4a04-b26a-8d47dd0d1864",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"product\": \"abc\",\n  \"item_sold\" : \"\",\n  \"revenue\": \"\",\n  \"gpm\": \"\",\n  \"ad_cpa\": \"\",\n  \"cleaned_transcript\": \"\",\n  \"slack_message\": \"\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        208
+      ],
+      "id": "268bbb41-b261-47b8-84b2-9cc7713106d4",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09RLADNLLB",
+          "mode": "list",
+          "cachedResultName": "tik-tok-shop-ads-feedback-channel"
+        },
+        "message": "={{ $json.output.slack_message }}",
+        "responseType": "freeText",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        0
+      ],
+      "id": "62b1d0ba-79a9-48af-9e85-6668bc49a6a1",
+      "name": "Send a message",
+      "webhookId": "<REDACTED_WEBHOOK_ID>",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "=Feedback Message : {{ $json.copy_writer_feedback }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Approved",
+              "description": "If feedback message is positive"
+            },
+            {
+              "category": "Rejected",
+              "description": "If feedback message is negative"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        0
+      ],
+      "id": "3ed8b78e-0c1c-4812-a561-70a19ce3d1ed",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f40b372a-09da-492b-8d59-1cca583b6aa6",
+              "name": "product",
+              "value": "={{ $('AI Agent').item.json.output.product }}",
+              "type": "string"
+            },
+            {
+              "id": "38a46a11-2441-4224-92d7-e62210c62df9",
+              "name": "item_sold",
+              "value": "={{ $('AI Agent').item.json.output.item_sold }}",
+              "type": "string"
+            },
+            {
+              "id": "4a2e3215-d33e-43cd-8f7d-7042ee7c919e",
+              "name": "revenue",
+              "value": "={{ $('AI Agent').item.json.output.revenue }}",
+              "type": "string"
+            },
+            {
+              "id": "235ebdce-4bcd-4802-8d42-9777a1d122c1",
+              "name": "gpm",
+              "value": "={{ $('AI Agent').item.json.output.gpm }}",
+              "type": "string"
+            },
+            {
+              "id": "4278cbb9-d0b6-4b10-a9e8-6ae25a4ac2ba",
+              "name": "ad_cpa",
+              "value": "={{ $('AI Agent').item.json.output.ad_cpa }}",
+              "type": "string"
+            },
+            {
+              "id": "f8be16f1-94d7-4e3d-95ff-01dad1bedece",
+              "name": "cleaned_transcript",
+              "value": "={{ $('AI Agent').item.json.output.cleaned_transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "2d941588-ca45-406c-922b-bd11094f90d4",
+              "name": "copy_writer_feedback",
+              "value": "={{ $json.data.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        0
+      ],
+      "id": "c6972c79-43e6-41bd-994a-3f50d661d6a5",
+      "name": "Set Ads Details, Transcript and Copy Writer Feedback"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        208
+      ],
+      "id": "d5b3b669-c208-4377-900e-96cfb67a9740",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=TikTok Shop Ads \n\nProduct :  {{ $json.product }}\nItem Sold : {{ $json.item_sold }}\nRevenue : {{ $json.revenue }}\nGPM : {{ $json.gpm }}\nAd CPA : {{ $json.ad_cpa }}\nTranscript : {{ $json.cleaned_transcript }}\n\nCopy Writer Feedback : {{ $json.copy_writer_feedback }}\n\nCreate Three Ads script",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an expert TikTok Shop ad analyst and copywriter specializing in reverse-engineering high-performing ads. Your role is to analyze winning ad transcripts and their performance data, then generate optimized variations that maintain what works while testing new angles.\nYour Core Competencies:\n\nAnalyzing successful ad transcripts to identify winning elements\nUnderstanding what metrics (revenue, GPM, CPA) reveal about audience response\nGenerating variations that don't replicate the original but build on its strengths\nCreating product-specific angles that complement proven performance\nIdentifying hooks, pacing, and CTAs that drive conversions\nBalancing tested winners with calculated creative risks\n\nAnalysis Framework:\nWhat High Performance Indicates:\n\nHigh revenue: Strong product-market fit and broad appeal\nHigh GPM: Efficient production and authentic feel\nLow CPA: Effective hook and conversion optimization\nHigh item_sold: Message resonates with target audience\n\nElements to Preserve:\n\nCore value proposition that drove sales\nSuccessful hook structure (if it's working, don't break it)\nEmotional triggers that connected with audience\nPacing and rhythm that kept viewers engaged\nCTA mechanics that converted\n\nElements to Test:\n\nDifferent angles on the same benefit (lifestyle vs. functional)\nAlternative hooks that address different pain points\nNew visual framing opportunities\nVaried social proof approaches\nUnique seasonal or trend-based angles\n\nScript Generation Guidelines:\nVariation Strategy:\n\nVariation 1 : Create first product-specific variation\nVariation 2 : Create second variation (different angle)\nVariation 3 (Angle Pivot): Create third variation (different hook)\n\nQuality Standards:\n\nNever reproduce the original transcript verbatim\nGenerate original language and phrasing\nMaintain similar video length and pacing (respect timing)\nKeep conversion mechanics that proved effective\nIntroduce fresh creative elements to test\nEnsure coherence with product and audience understanding\n\nOutput Format:\nFor each script variation, provide:\n\n{\n  \"script_one\": {\n    \"variation_label\": \"\",\n    \"differentiation_strategy\": \"\",\n    \"script_text\": \"\",\n    \"visual_recommendations\": \"\",\n    \"key_changes_from_original\": \"\"\n  },\n  \"script_two\": {\n    \"variation_label\": \"\",\n    \"differentiation_strategy\": \"\",\n    \"script_text\": \"\",\n    \"visual_recommendations\": \"\",\n    \"key_changes_from_original\": \"\"\n  },\n  \"script_three\": {\n    \"variation_label\": \"\",\n    \"differentiation_strategy\": \"\",\n    \"script_text\": \"\",\n    \"visual_recommendations\": \"\",\n    \"key_changes_from_original\": \"\"\n  }\n}\n\n\nVariation Label (what's being tested)\nDifferentiation Strategy (how this differs from original)\nScript Text (with timing in brackets)\nVisual Recommendations (specific shots/actions)\nKey Changes from Original (what's new, what's preserved)\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1616,
+        -320
+      ],
+      "id": "11c455f2-775d-442c-83fc-8f0690d57606",
+      "name": "TikTok Shop Ads Script Generator"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"script_one\": {\n    \"variation_label\": \"\",\n    \"differentiation_strategy\": \"\",\n    \"script_text\": \"\",\n    \"visual_recommendations\": \"\",\n    \"key_changes_from_original\": \"\"\n  },\n  \"script_two\": {\n    \"variation_label\": \"\",\n    \"differentiation_strategy\": \"\",\n    \"script_text\": \"\",\n    \"visual_recommendations\": \"\",\n    \"key_changes_from_original\": \"\"\n  },\n  \"script_three\": {\n    \"variation_label\": \"\",\n    \"differentiation_strategy\": \"\",\n    \"script_text\": \"\",\n    \"visual_recommendations\": \"\",\n    \"key_changes_from_original\": \"\"\n  }\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1792,
+        -112
+      ],
+      "id": "168bf761-a1c2-44cf-a5ad-7c2e4d66d070",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        -112
+      ],
+      "id": "25a33d17-d236-4f3b-9e99-d6940095e036",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb972cbe-d3cb-43c5-b526-56b9176bc28b",
+              "name": "script_one",
+              "value": "={{ $json.output.script_one }}",
+              "type": "object"
+            },
+            {
+              "id": "a0a9fced-c304-40da-9957-d91937de9644",
+              "name": "script_two",
+              "value": "={{ $json.output.script_two }}",
+              "type": "object"
+            },
+            {
+              "id": "c57160b8-e80d-4919-a762-7c0274e0ee03",
+              "name": "script_three",
+              "value": "={{ $json.output.script_three }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1952,
+        -320
+      ],
+      "id": "afb2d86d-37d3-475b-9b7e-8d894248886b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// N8N Code Node - Convert JSON to Script Array\n// This code processes the TikTok ad script JSON and outputs a clean script array\n\n// Get the input data\nconst inputData = $input.item.json;\n\n// Extract the script_one, script_two, script_three from the JSON structure\nconst scriptData = inputData;\n\n// Create an array of scripts with a consistent structure\nconst scriptsArray = [\n  {\n    id: 1,\n    variation_label: scriptData.script_one.variation_label,\n    differentiation_strategy: scriptData.script_one.differentiation_strategy,\n    script_text: scriptData.script_one.script_text,\n    visual_recommendations: scriptData.script_one.visual_recommendations,\n    key_changes_from_original: scriptData.script_one.key_changes_from_original,\n    type: \"script\",\n    status: \"generated\"\n  },\n  {\n    id: 2,\n    variation_label: scriptData.script_two.variation_label,\n    differentiation_strategy: scriptData.script_two.differentiation_strategy,\n    script_text: scriptData.script_two.script_text,\n    visual_recommendations: scriptData.script_two.visual_recommendations,\n    key_changes_from_original: scriptData.script_two.key_changes_from_original,\n    type: \"script\",\n    status: \"generated\"\n  },\n  {\n    id: 3,\n    variation_label: scriptData.script_three.variation_label,\n    differentiation_strategy: scriptData.script_three.differentiation_strategy,\n    script_text: scriptData.script_three.script_text,\n    visual_recommendations: scriptData.script_three.visual_recommendations,\n    key_changes_from_original: scriptData.script_three.key_changes_from_original,\n    type: \"script\",\n    status: \"generated\"\n  }\n];\n\n// Return the scripts array\nreturn {\n  scripts: scriptsArray,\n  total_scripts: scriptsArray.length,\n  generated_at: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        -320
+      ],
+      "id": "7bf13d7a-1e14-4529-9bd7-8ae90c61fee8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "scripts",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2352,
+        -320
+      ],
+      "id": "a7873b2b-e57f-4b82-8ff2-f41545fadea3",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1T8nLL1RWGgnHQTgR79FOltwsOKCxhYf1_a7J_81DSNw",
+          "mode": "list",
+          "cachedResultName": "TikTok Shops Ads Script",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/<REDACTED_SHEET_ID>/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/<REDACTED_SHEET_ID>/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $now.format(\"dd/LL/yyyy\") }}",
+            "variation_label\n": "={{ $json.variation_label }}",
+            "differentiation_strategy\n": "={{ $json.differentiation_strategy }}",
+            "script_text": "={{ $json.script_text }}",
+            "visual_recommendations\n": "={{ $json.visual_recommendations }}",
+            "key_changes_from_original\n": "={{ $json.key_changes_from_original }}",
+            "status": "={{ $json.status.toTitleCase() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "variation_label\n",
+              "displayName": "variation_label\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "differentiation_strategy\n",
+              "displayName": "differentiation_strategy\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "script_text",
+              "displayName": "script_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "visual_recommendations\n",
+              "displayName": "visual_recommendations\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key_changes_from_original\n",
+              "displayName": "key_changes_from_original\n",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2560,
+        -320
+      ],
+      "id": "1e18de9d-525a-4b91-953c-475a0fa9451f",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        528
+      ],
+      "id": "0ce5ceea-bb02-4ffb-a915-6b69a1cbfbf4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1T8nLL1RWGgnHQTgR79FOltwsOKCxhYf1_a7J_81DSNw",
+          "mode": "list",
+          "cachedResultName": "TikTok Shops Ads Script",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/<REDACTED_SHEET_ID>/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/<REDACTED_SHEET_ID>/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "Approved"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        192,
+        528
+      ],
+      "id": "3c3fa330-d9c2-44b2-b2fd-35c9d9ff1a7a",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "=TikTok Shop Ads Script\n\nDate : {{ $json.date }}\n\n\nVariation Label : {{ $json['variation_label'] }}\n\n\nDifferntiation Strategy : {{ $json.differentiation_strategy }}\n\n\nScript Text : {{ $json.script_text }}\n\n\nVisual Recommendations : {{ $json.visual_recommendations }}\n\n\nKey Changes from Original : {{ $json.key_changes_from_original }}\n\n\n\n\n\n\n\n\n\n\n",
+        "name": "=TikTok Ads Script - {{ $json.date }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "18XZuak0F9098HnAdWCeiSMf_NlT09hZc",
+          "mode": "list",
+          "cachedResultName": "Hubcredo-tik-tok-ads",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/18XZuak0F9098HnAdWCeiSMf_NlT09hZc"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        400,
+        528
+      ],
+      "id": "ab314d0f-3040-414a-a3b2-3fd66d601868",
+      "name": "Create file from text",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "<REDACTED_EMAIL>",
+        "subject": "New Ads Script",
+        "emailType": "text",
+        "message": "=TikTok Shop Ads Script",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        976,
+        528
+      ],
+      "id": "5ea4ae90-3e5e-4652-b9f5-ca81ab4870b3",
+      "name": "Send a message1",
+      "webhookId": "<REDACTED_WEBHOOK_ID>",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('Create file from text').item.json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "commenter",
+            "type": "anyone",
+            "allowFileDiscovery": true
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        592,
+        528
+      ],
+      "id": "569f3aae-66d5-4807-81f4-e1bd2ee96045",
+      "name": "Share file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('Create file from text').item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        784,
+        528
+      ],
+      "id": "57dbdaa7-3238-413e-98bd-da90ed36e4a7",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Transcribe TikTok Ad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe TikTok Ad": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Set Ads Details, Transcript and Copy Writer Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ads Details, Transcript and Copy Writer Feedback": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "TikTok Shop Ads Script Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "TikTok Shop Ads Script Generator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "TikTok Shop Ads Script Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TikTok Shop Ads Script Generator": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Create file from text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create file from text": {
+      "main": [
+        [
+          {
+            "node": "Share file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share file": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
